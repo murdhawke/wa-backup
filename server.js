@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 require('dotenv').config();
+const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -435,6 +436,28 @@ async function startBackup(client) {
                 if (csvRecords.length > 0) {
                     await csvWriter.writeRecords(csvRecords);
                     addMessage(`💾 Saved ${csvRecords.length} messages from ${chatName}`);
+
+                    // Persist chat and messages to the database (if available)
+                    try {
+                        if (db && typeof db.saveChat === 'function') {
+                            await db.saveChat({ id: chat.id._serialized, name: chat.name || chat.id.user, totalMessages: csvRecords.length });
+                            for (const rec of csvRecords) {
+                                await db.saveMessage({
+                                    id: rec.id,
+                                    chatId: chat.id._serialized,
+                                    timestamp: new Date(rec.timestamp).getTime() / 1000,
+                                    sender: rec.sender,
+                                    senderId: rec.senderId,
+                                    type: rec.type,
+                                    body: rec.body,
+                                    hasMedia: rec.hasMedia === 'TRUE',
+                                    mediaPath: rec.mediaPath
+                                });
+                            }
+                        }
+                    } catch (dbErr) {
+                        console.error('DB save error:', dbErr);
+                    }
                 }
 
                 processedCount++;
@@ -465,7 +488,19 @@ async function startBackup(client) {
 
 // ============ START SERVER ============
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📝 WhatsApp Backup Service Ready`);
-});
+// Initialize DB then start server
+(async () => {
+    try {
+        if (db && typeof db.initDb === 'function') {
+            await db.initDb();
+            console.log('✅ Database initialized');
+        }
+    } catch (err) {
+        console.error('Database init error:', err);
+    }
+
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
+        console.log(`📝 WhatsApp Backup Service Ready`);
+    });
+})();
