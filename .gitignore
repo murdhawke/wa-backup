@@ -1,0 +1,55 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+/node_modules
+
+# User backups and media (very large)
+/backups
+/downloaded_media
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Build outputs
+/dist
+/build
+
+# Logs
+logs/
+*.log
+
+# Session files
+sessions/
+
+# Temporary files
+/tmp
+/temp
+
+# WhatsApp session data (can be large)
+.wwebjs_auth/
+
+# Browser data
+.puppeteer/

@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Backup - Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .navbar {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .navbar-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+
+        .logout-btn {
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #ff5252;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 16px;
+        }
+
+        .card-header h2 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .start-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .start-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border-radius: 24px;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.idle {
+            background: #ccc;
+            animation: none;
+        }
+
+        .status-dot.initializing {
+            background: #ffc107;
+        }
+
+        .status-dot.downloading {
+            background: #667eea;
+        }
+
+        .status-dot.completed {
+            background: #4caf50;
+            animation: none;
+        }
+
+        .status-dot.error {
+            background: #ff6b6b;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .progress-section {
+            margin-bottom: 24px;
+        }
+
+        .progress-label {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-item {
+            background: #f8f9fa;
+            padding: 16px;
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .info-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .logs {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            height: 300px;
+            overflow-y: auto;
+            border: 1px solid #333;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            opacity: 0.8;
+        }
+
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+
+        .log-entry.success {
+            color: #51cf66;
+        }
+
+        .log-entry.info {
+            color: #74c0fc;
+        }
+
+        .current-chat {
+            background: #e3f2fd;
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 20px auto;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <div class="navbar">
+        <div class="navbar-left">
+            <div class="logo-text">📱 WhatsApp Backup</div>
+        </div>
+        <div class="navbar-right">
+            <div class="user-info">
+                <div style="text-align: right;">
+                    <div id="waNumber" style="font-weight: 600; font-size: 14px;">WhatsApp</div>
+                    <div id="waPlatform" style="font-size: 12px; color: #999;">Connected</div>
+                </div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Control Card -->
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Backup Control</h2>
+                    <div class="status-indicator">
+                        <div id="statusDot" class="status-dot idle"></div>
+                        <span id="statusText">Ready</span>
+                    </div>
+                </div>
+                <button id="startBtn" class="start-btn" onclick="startBackup()">Start Backup</button>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalChats">0</div>
+                    <div class="stat-label">Total Chats</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="processedChats">0</div>
+                    <div class="stat-label">Processed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="downloadedMessages">0</div>
+                    <div class="stat-label">Messages Downloaded</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="failedChats">0</div>
+                    <div class="stat-label">Failed</div>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="progress-section">
+                <div class="progress-label">
+                    <span>Overall Progress</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Current Chat Info -->
+            <div id="currentChatDiv" class="current-chat hidden">
+                <strong>Currently processing:</strong> <span id="currentChatText"></span>
+            </div>
+
+            <!-- Info Grid -->
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Start Time</div>
+                    <div class="info-value" id="startTime">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Elapsed</div>
+                    <div class="info-value" id="elapsedTime">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Status</div>
+                    <div class="info-value" id="statusValue">Idle</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Card -->
+        <div class="card">
+            <div class="card-header">
+                <h2>Activity Log</h2>
+                <button onclick="clearLogs()" style="background: #f0f0f0; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Clear</button>
+            </div>
+            <div class="logs" id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        let backupInProgress = false;
+        let pollInterval = null;
+        let startTime = null;
+
+        // Load user info on page load
+        window.addEventListener('load', () => {
+            loadUserInfo();
+            startProgressPolling();
+        });
+
+        async function loadUserInfo() {
+            try {
+                const res = await fetch('/api/user');
+                const user = await res.json();
+                document.getElementById('waNumber').textContent = '+' + user.number;
+                document.getElementById('waPlatform').textContent = user.platform || 'WhatsApp Web';
+            } catch (error) {
+                console.error('Failed to load user info:', error);
+                addLog('⚠️ Failed to load WhatsApp info', 'error');
+            }
+        }
+
+        async function startBackup() {
+            if (backupInProgress) return;
+
+            try {
+                const res = await fetch('/api/whatsapp/start', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.error) {
+                    addLog(data.error, 'error');
+                    return;
+                }
+
+                backupInProgress = true;
+                startTime = new Date();
+                document.getElementById('startBtn').disabled = true;
+                clearLogs();
+                addLog('🚀 Backup starting...', 'info');
+            } catch (error) {
+                addLog(`Error starting backup: ${error.message}`, 'error');
+            }
+        }
+
+        function startProgressPolling() {
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/backup/progress');
+                    const progress = await res.json();
+
+                    updateUI(progress);
+
+                    if (progress.status === 'completed' || progress.status === 'error') {
+                        backupInProgress = false;
+                        document.getElementById('startBtn').disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch progress:', error);
+                }
+            }, 1000);
+        }
+
+        function updateUI(progress) {
+            // Update status indicator
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            
+            statusDot.className = 'status-dot ' + (progress.status || 'idle');
+            statusText.textContent = formatStatus(progress.status || 'Idle');
+
+            // Update stats
+            document.getElementById('totalChats').textContent = progress.totalChats || 0;
+            document.getElementById('processedChats').textContent = progress.processedChats || 0;
+            document.getElementById('downloadedMessages').textContent = progress.downloadedMessages || 0;
+            document.getElementById('failedChats').textContent = progress.failedChats || 0;
+
+            // Update progress bar
+            if (progress.totalChats > 0) {
+                const percent = Math.round((progress.processedChats / progress.totalChats) * 100);
+                document.getElementById('progressFill').style.width = percent + '%';
+                document.getElementById('progressPercent').textContent = percent + '%';
+            }
+
+            // Update current chat
+            if (progress.currentChat) {
+                document.getElementById('currentChatDiv').classList.remove('hidden');
+                document.getElementById('currentChatText').textContent = progress.currentChat;
+            }
+
+            // Update elapsed time
+            if (startTime) {
+                const elapsed = Math.round((new Date() - startTime) / 1000);
+                document.getElementById('elapsedTime').textContent = formatTime(elapsed);
+                document.getElementById('startTime').textContent = startTime.toLocaleTimeString();
+            }
+
+            // Update status value
+            document.getElementById('statusValue').textContent = formatStatus(progress.status || 'Idle');
+
+            // Add new messages to log
+            if (progress.messages && progress.messages.length > 0) {
+                const logsDiv = document.getElementById('logs');
+                const lastEntry = logsDiv.lastElementChild;
+                const lastTimestamp = lastEntry ? lastEntry.dataset.timestamp : '0';
+
+                progress.messages.forEach(msg => {
+                    if (msg.timestamp > lastTimestamp) {
+                        addLog(msg.text, getLogType(msg.text));
+                    }
+                });
+            }
+        }
+
+        function formatStatus(status) {
+            const map = {
+                'idle': 'Ready',
+                'initializing': 'Initializing...',
+                'processing_chats': 'Processing Chats...',
+                'fetching_chats': 'Fetching Chats...',
+                'running': 'Running...',
+                'completed': 'Completed ✓',
+                'error': 'Error ✗'
+            };
+            return map[status] || status;
+        }
+
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+
+            if (hours > 0) {
+                return `${hours}h ${minutes}m`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${secs}s`;
+            } else {
+                return `${secs}s`;
+            }
+        }
+
+        function getLogType(message) {
+            if (message.includes('❌') || message.includes('Error')) return 'error';
+            if (message.includes('✅') || message.includes('💾')) return 'success';
+            return 'info';
+        }
+
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.dataset.timestamp = new Date().toISOString();
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = '/logout';
+            }
+        }
+    </script>
+</body>
+</html>
