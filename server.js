@@ -7,7 +7,6 @@ const fs = require('fs');
 const os = require('os');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 require('dotenv').config();
-const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -314,7 +313,8 @@ function addMessage(message) {
 }
 
 async function startBackup(client) {
-    const MEDIA_DIR = path.join(__dirname, 'backups/session/media');
+    const BACKUP_DIR = path.join(__dirname, 'backups', 'session');
+    const MEDIA_DIR = path.join(BACKUP_DIR, 'media');
 
     try {
         // Wait for authentication if not already authenticated
@@ -341,10 +341,9 @@ async function startBackup(client) {
             }
         }
 
-        // Create backup directory
-        if (!fs.existsSync(MEDIA_DIR)) {
-            fs.mkdirSync(MEDIA_DIR, { recursive: true });
-        }
+        // Create backup directories
+        fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        fs.mkdirSync(MEDIA_DIR, { recursive: true });
 
         updateProgress({ status: 'fetching_chats' });
         addMessage('📂 Fetching chats from WhatsApp...');
@@ -389,7 +388,7 @@ async function startBackup(client) {
                     .toLowerCase();
 
                 const csvWriter = createCsvWriter({
-                    path: path.join(__dirname, 'backups/session', `backup_${sanitizedChatName}.csv`),
+                    path: path.join(BACKUP_DIR, `backup_${sanitizedChatName}.csv`),
                     header: [
                         { id: 'id', title: 'Message_ID' },
                         { id: 'timestamp', title: 'Timestamp' },
@@ -452,28 +451,6 @@ async function startBackup(client) {
                 if (csvRecords.length > 0) {
                     await csvWriter.writeRecords(csvRecords);
                     addMessage(`💾 Saved ${csvRecords.length} messages from ${chatName}`);
-
-                    // Persist chat and messages to the database (if available)
-                    try {
-                        if (db && typeof db.saveChat === 'function') {
-                            await db.saveChat({ id: chat.id._serialized, name: chat.name || chat.id.user, totalMessages: csvRecords.length });
-                            for (const rec of csvRecords) {
-                                await db.saveMessage({
-                                    id: rec.id,
-                                    chatId: chat.id._serialized,
-                                    timestamp: new Date(rec.timestamp).getTime() / 1000,
-                                    sender: rec.sender,
-                                    senderId: rec.senderId,
-                                    type: rec.type,
-                                    body: rec.body,
-                                    hasMedia: rec.hasMedia === 'TRUE',
-                                    mediaPath: rec.mediaPath
-                                });
-                            }
-                        }
-                    } catch (dbErr) {
-                        console.error('DB save error:', dbErr);
-                    }
                 }
 
                 processedCount++;
@@ -504,17 +481,8 @@ async function startBackup(client) {
 
 // ============ START SERVER ============
 
-// Initialize DB then start server
+// Start server
 (async () => {
-    try {
-        if (db && typeof db.initDb === 'function') {
-            await db.initDb();
-            console.log('✅ Database initialized');
-        }
-    } catch (err) {
-        console.error('Database init error:', err);
-    }
-
     app.listen(PORT, () => {
         console.log(`🚀 Server running on http://localhost:${PORT}`);
         console.log(`📝 WhatsApp Backup Service Ready`);
