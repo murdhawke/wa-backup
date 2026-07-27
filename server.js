@@ -4,11 +4,16 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const WHATSAPP_AUTH_BASE_DIR = process.env.WWEBJS_DATA_PATH || path.join(os.tmpdir(), '.wwebjs_auth');
+
+fs.mkdirSync(WHATSAPP_AUTH_BASE_DIR, { recursive: true });
+console.log('📁 WhatsApp auth directory ready:', WHATSAPP_AUTH_BASE_DIR);
 
 // Configuration
 const START_DATE = new Date('2026-01-01T00:00:00').getTime();
@@ -42,17 +47,41 @@ function initializeWhatsAppClient() {
         return whatsappClient.instance;
     }
 
+    const browserCandidates = [
+        process.env.CHROME_PATH,
+        process.env.CHROMIUM_PATH,
+        process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser'
+    ].filter(Boolean);
+
+    const resolvedBrowserPath = browserCandidates.find((candidate) => fs.existsSync(candidate));
+    const puppeteerConfig = {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled'
+        ],
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    };
+
+    if (resolvedBrowserPath) {
+        puppeteerConfig.executablePath = resolvedBrowserPath;
+        console.log('🧭 Using browser binary:', resolvedBrowserPath);
+    } else {
+        console.warn('⚠️ No Chrome/Chromium executable was found. Puppeteer will use its default path.');
+    }
+
     const client = new Client({
-        authStrategy: new LocalAuth({ clientId: 'whatsapp_backup' }),
-        puppeteer: {
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-blink-features=AutomationControlled'
-            ],
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        }
+        authStrategy: new LocalAuth({
+            clientId: 'whatsapp_backup',
+            dataPath: WHATSAPP_AUTH_BASE_DIR
+        }),
+        puppeteer: puppeteerConfig
     });
 
     // Set up QR event listener
@@ -196,7 +225,12 @@ app.get('/api/backup/progress', (req, res) => {
 });
 
 async function clearWhatsAppSession() {
-    const authPath = path.join(__dirname, '.wwebjs_auth', 'whatsapp_backup');
+    const authPaths = [
+        path.join(WHATSAPP_AUTH_BASE_DIR, 'session-whatsapp_backup'),
+        path.join(__dirname, '.wwebjs_auth', 'whatsapp_backup'),
+        path.join(__dirname, '.wwebjs_auth')
+    ];
+
     if (whatsappClient.instance) {
         try {
             await whatsappClient.instance.logout();
@@ -219,10 +253,13 @@ async function clearWhatsAppSession() {
     whatsappClient.backupProgress = null;
 
     try {
-        if (fs.existsSync(authPath)) {
-            await fs.promises.rm(authPath, { recursive: true, force: true });
-            console.log('✅ WhatsApp LocalAuth session directory removed:', authPath);
+        for (const authPath of authPaths) {
+            if (fs.existsSync(authPath)) {
+                await fs.promises.rm(authPath, { recursive: true, force: true });
+                console.log('✅ WhatsApp LocalAuth session directory removed:', authPath);
+            }
         }
+        fs.mkdirSync(WHATSAPP_AUTH_BASE_DIR, { recursive: true });
     } catch (err) {
         console.error('Failed to remove WhatsApp session directory:', err);
     }
@@ -297,7 +334,8 @@ function addMessage(message) {
 }
 
 async function startBackup(client) {
-    const MEDIA_DIR = path.join(__dirname, 'backups/session/media');
+    const BACKUP_DIR = path.join(__dirname, 'backups', 'session');
+    const MEDIA_DIR = path.join(BACKUP_DIR, 'media');
 
     try {
         // Wait for authentication if not already authenticated
@@ -324,10 +362,9 @@ async function startBackup(client) {
             }
         }
 
-        // Create backup directory
-        if (!fs.existsSync(MEDIA_DIR)) {
-            fs.mkdirSync(MEDIA_DIR, { recursive: true });
-        }
+        // Create backup directories
+        fs.mkdirSync(BACKUP_DIR, { recursive: true });
+        fs.mkdirSync(MEDIA_DIR, { recursive: true });
 
         updateProgress({ status: 'fetching_chats' });
         addMessage('📂 Fetching chats from WhatsApp...');
@@ -372,7 +409,7 @@ async function startBackup(client) {
                     .toLowerCase();
 
                 const csvWriter = createCsvWriter({
-                    path: path.join(__dirname, 'backups/session', `backup_${sanitizedChatName}.csv`),
+                    path: path.join(BACKUP_DIR, `backup_${sanitizedChatName}.csv`),
                     header: [
                         { id: 'id', title: 'Message_ID' },
                         { id: 'timestamp', title: 'Timestamp' },
@@ -465,7 +502,10 @@ async function startBackup(client) {
 
 // ============ START SERVER ============
 
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📝 WhatsApp Backup Service Ready`);
-});
+// Start server
+(async () => {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
+        console.log(`📝 WhatsApp Backup Service Ready`);
+    });
+})();
