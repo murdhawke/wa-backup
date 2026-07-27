@@ -4,12 +4,17 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 require('dotenv').config();
 const db = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const WHATSAPP_AUTH_BASE_DIR = process.env.WWEBJS_DATA_PATH || path.join(os.tmpdir(), '.wwebjs_auth');
+
+fs.mkdirSync(WHATSAPP_AUTH_BASE_DIR, { recursive: true });
+console.log('📁 WhatsApp auth directory ready:', WHATSAPP_AUTH_BASE_DIR);
 
 // Configuration
 const START_DATE = new Date('2026-01-01T00:00:00').getTime();
@@ -44,7 +49,10 @@ function initializeWhatsAppClient() {
     }
 
     const client = new Client({
-        authStrategy: new LocalAuth({ clientId: 'whatsapp_backup' }),
+        authStrategy: new LocalAuth({
+            clientId: 'whatsapp_backup',
+            dataPath: WHATSAPP_AUTH_BASE_DIR
+        }),
         puppeteer: {
             headless: true,
             args: [
@@ -197,7 +205,12 @@ app.get('/api/backup/progress', (req, res) => {
 });
 
 async function clearWhatsAppSession() {
-    const authPath = path.join(__dirname, '.wwebjs_auth', 'whatsapp_backup');
+    const authPaths = [
+        path.join(WHATSAPP_AUTH_BASE_DIR, 'session-whatsapp_backup'),
+        path.join(__dirname, '.wwebjs_auth', 'whatsapp_backup'),
+        path.join(__dirname, '.wwebjs_auth')
+    ];
+
     if (whatsappClient.instance) {
         try {
             await whatsappClient.instance.logout();
@@ -220,10 +233,13 @@ async function clearWhatsAppSession() {
     whatsappClient.backupProgress = null;
 
     try {
-        if (fs.existsSync(authPath)) {
-            await fs.promises.rm(authPath, { recursive: true, force: true });
-            console.log('✅ WhatsApp LocalAuth session directory removed:', authPath);
+        for (const authPath of authPaths) {
+            if (fs.existsSync(authPath)) {
+                await fs.promises.rm(authPath, { recursive: true, force: true });
+                console.log('✅ WhatsApp LocalAuth session directory removed:', authPath);
+            }
         }
+        fs.mkdirSync(WHATSAPP_AUTH_BASE_DIR, { recursive: true });
     } catch (err) {
         console.error('Failed to remove WhatsApp session directory:', err);
     }
