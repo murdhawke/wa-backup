@@ -47,20 +47,41 @@ function initializeWhatsAppClient() {
         return whatsappClient.instance;
     }
 
+    const browserCandidates = [
+        process.env.CHROME_PATH,
+        process.env.CHROMIUM_PATH,
+        process.env.PUPPETEER_EXECUTABLE_PATH,
+        '/usr/bin/google-chrome',
+        '/usr/bin/google-chrome-stable',
+        '/usr/bin/chromium',
+        '/usr/bin/chromium-browser'
+    ].filter(Boolean);
+
+    const resolvedBrowserPath = browserCandidates.find((candidate) => fs.existsSync(candidate));
+    const puppeteerConfig = {
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-blink-features=AutomationControlled'
+        ],
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    };
+
+    if (resolvedBrowserPath) {
+        puppeteerConfig.executablePath = resolvedBrowserPath;
+        console.log('🧭 Using browser binary:', resolvedBrowserPath);
+    } else {
+        console.warn('⚠️ No Chrome/Chromium executable was found. Puppeteer will use its default path.');
+    }
+
     const client = new Client({
         authStrategy: new LocalAuth({
             clientId: 'whatsapp_backup',
             dataPath: WHATSAPP_AUTH_BASE_DIR
         }),
-        puppeteer: {
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-blink-features=AutomationControlled'
-            ],
-            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
-        }
+        puppeteer: puppeteerConfig
     });
 
     // Set up QR event listener
